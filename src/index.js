@@ -12,46 +12,18 @@ function Square(props) {
 }
 
 class Board extends React.Component {
-  constructor(props) {
-    super(props); //always need to call super when defining constructor of subclass
-    this.state = {                  //use state for the compenent to "remember" things
-      squares: Array(9).fill(null), //state considered private to the component
-      xIsNext: true,
-    };
-  }
-
-  handleClick(i) {
-    const squares = this.state.squares.slice(); //create copy of squares to modify
-    //ignore click if square is full or if there's a Winner
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
-    squares[i] = this.state.xIsNext? 'X' : 'O';
-    this.setState({squares: squares,
-                  xIsNext: !this.state.xIsNext}); //avoiding data mutation lets us keep track of game history
-  }
-
   renderSquare(i) {
     return (
       <Square
-        value={this.state.squares[i]}
-        onClick={() => this.handleClick(i)}
+        value={this.props.squares[i]}
+        onClick={() => this.props.onClick(i)}
       />
     );
   }
 
-  render() {
-    const winner = calculateWinner(this.state.squares);
-    let status; //const makes contract that no rebinding will happen whereas there's no guarantee in let
-    if (winner) {
-      status = 'Winner: ' + winner;
-    } else {
-      status = 'Next player: ' + (this.state.xIsNext? 'X' : 'O');
-    }
-
+  render() { //components are re-rendered if their state changes
     return (
       <div>
-        <div className="status">{status}</div>
         <div className="board-row">
           {this.renderSquare(0)}
           {this.renderSquare(1)}
@@ -73,15 +45,75 @@ class Board extends React.Component {
 }
 
 class Game extends React.Component {
+  constructor(props) {
+    super(props);
+    //use state for the compenent to "remember" things. state considered private to component
+    this.state = {
+      history: [{
+        squares: Array(9).fill(null),
+      }],
+      xIsNext: true,
+      stepNumber: 0,
+    }
+  }
+
+  handleClick(i) {
+    const history = this.state.history.slice(0, this.state.stepNumber + 1)
+    const current = history[this.state.stepNumber];
+    const squares = current.squares.slice(); //create copy of squares to modify
+    //ignore click if square is full or if there's a Winner
+    if (calculateWinner(squares) || squares[i]) {
+      return;
+    }
+    squares[i] = this.state.xIsNext? 'X' : 'O';
+    this.setState({history: history.concat([{squares: squares,}]), //concat doesn't mutate original array
+                  xIsNext: !this.state.xIsNext,
+                  stepNumber: history.length,
+                 });
+  }
+
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: (step % 2) === 0,
+    });
+  }
+
   render() {
+    const history = this.state.history;
+    const current = history[this.state.stepNumber];
+    const winner = calculateWinner(current.squares);
+    const moves = history.map((step, move) => //applies below code to each history board and generates moves list
+      {
+        const desc = move? 'Go to move #' + move : 'Go to game start';
+        return (
+          //key used to refer to this list element
+          <li key={move}>
+            <button onClick={() => this.jumpTo(move)}>
+              {desc}
+            </button>
+          </li>
+        )
+      })
+
+    let status;
+    if (winner) {
+      status = 'Winner: ' + winner;
+    } else {
+      status = 'Next player: ' + (this.state.xIsNext? 'X' : 'O');
+    }
+
     return (
       <div className="game">
         <div className="game-board">
-          <Board />
+          <Board
+            squares={current.squares}
+            onClick={(i) => this.handleClick(i)}
+          />
         </div>
         <div className="game-info">
-          <div>{/* status */}</div>
-          <ol>{/* TODO */}</ol>
+          <div>{status}</div>
+          <ol>{moves}</ol>
         </div>
       </div>
     );
